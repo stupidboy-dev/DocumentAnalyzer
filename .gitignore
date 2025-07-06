@@ -1,0 +1,5 @@
+#игнорировать папку .venv
+.venv/
+
+#игнорировать папку har_and_cookies
+har_and_cookies/

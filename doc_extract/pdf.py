@@ -51,7 +51,7 @@ class PdfExtraction:
         # Проверяем, получены ли изображения
         if images:
             # Формируем имя выходного файла для изображения
-            output_file = f"PDF_image_page_{page_num}.png"
+            output_file = f"images/PDF_image_page_{page_num}.png"
             # Сохраняем первое изображение в формате PNG
             images[0].save(output_file, "PNG")
             # Возвращаем путь к сохранённому изображению
@@ -187,4 +187,4 @@ def extract_pages_pdf(pdf_path):
                     table_num += 1
 
         # Возвращаем строку с извлечёнными данными для текущей страницы
-        return features
+    return features
