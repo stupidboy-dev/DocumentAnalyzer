@@ -10,40 +10,48 @@ class ImageExtractions:
         self.image_path = image_path
         self.client = Client()
         self.prompt = """
-            Опиши изображение.
+            Опиши изображение подробно.
             """
 
-    def compress_image(self, max_size=(512, 512)):
-        """
-        Сжимает изображение до указанного размера.
-        :param max_size: Кортеж (ширина, высота) для максимального размера
-        :return: Сжатое изображение в формате bytes
-        """
-        try:
-            with Image.open(self.image_path) as img:
-                img = img.convert("RGB")
-                img.thumbnail(max_size, Image.Resampling.LANCZOS)
-                img_byte_arr = io.BytesIO()
-                img.save(img_byte_arr, format="JPEG", quality=85)
-                return img_byte_arr.getvalue()
-        except Exception as e:
-            print(f"Ошибка при сжатии изображения: {e}")
-            return None
-
-    def encode_image(self):
+    def encode_image(self, max_size=(2048, 2048), quality=85):
         """
         Кодирует изображение в формат base64 после сжатия.
+        :param max_size: Максимальный размер изображения (ширина, высота)
+        :param quality: Качество сжатия JPEG (1-100)
         :return: Строка base64 или None в случае ошибки
         """
         if not os.path.exists(self.image_path):
             print(f"Ошибка: Файл {self.image_path} не найден")
             return None
+
         try:
-            image_data = self.compress_image()
-            if not image_data:
-                return None
-            image_base64 = base64.b64encode(image_data).decode('utf-8')
-            return f"data:image/jpeg;base64,{image_base64}"
+            # Открываем изображение
+            with Image.open(self.image_path) as image:
+                # Конвертируем в RGB если необходимо
+                if image.mode in ('RGBA', 'LA', 'P'):
+                    # Создаем белый фон для прозрачных изображений
+                    background = Image.new('RGB', image.size, (255, 255, 255))
+                    if image.mode == 'P':
+                        image = image.convert('RGBA')
+                    background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                    image = background
+                elif image.mode != 'RGB':
+                    image = image.convert('RGB')
+
+                # Изменяем размер если изображение слишком большое
+                if image.size[0] > max_size[0] or image.size[1] > max_size[1]:
+                    image.thumbnail(max_size, Image.Resampling.LANCZOS)
+                    print(f"Изображение сжато до размера: {image.size}")
+
+                # Сохраняем в буфер как JPEG
+                buffer = io.BytesIO()
+                image.save(buffer, format='JPEG', quality=quality, optimize=True)
+                buffer.seek(0)
+
+                # Кодируем в base64
+                image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                return f"data:image/jpeg;base64,{image_base64}"
+
         except Exception as e:
             print(f"Ошибка при кодировании изображения: {e}")
             return None
@@ -68,7 +76,7 @@ class ImageExtractions:
                         {"type": "image_url", "image_url": {"url": image_url, "detail": detail}}
                     ]
                 }],
-                web_search=False,
+                web_search=True,
             )
             return response.choices[0].message.content
         except Exception as e:
