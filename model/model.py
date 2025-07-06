@@ -122,7 +122,7 @@ class MainModel_MainModule:
         client = Client()
         try:
             response = client.chat.completions.create(
-                model="deepseek-prover-v2-671b",  # Изменена модель для лучшей поддержки
+                model="gpt-4.1-nano",  # Изменена модель для лучшей поддержки
                 messages=[{"role": "user", "content": question}],
                 web_search=search,
 
