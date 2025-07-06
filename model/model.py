@@ -1,14 +1,18 @@
 import os.path
 
+from g4f.Provider import provider
 from g4f.client import Client
 import g4f
 from collections import deque
 from doc_extract.pdf import extract_pages_pdf
 from doc_extract.docx import DocxExtracting
+import tkinter as tk
+from tkinter import filedialog
+
 
 class MainModel_MainModuel:
-    def __init__(self, file_path):
-        self.file_path = file_path
+    def __init__(self):
+        self.file_path = None
 
     def content(self):
         if os.path.splitext(self.file_path)[1].lower() == '.pdf':
@@ -17,23 +21,36 @@ class MainModel_MainModuel:
             docx = DocxExtracting(self.file_path)
             return docx.make_description()
 
+    def choose_file(self):
+        root = tk.Tk()
+        root.withdraw()  # Скрываем главное окно Tkinter
+        root.geometry("1500x700")
+        self.file_path = filedialog.askopenfilename()  # Открываем диалоговое окно выбора файла
+        if self.file_path:
+            print(f"Выбран файл: {self.file_path}")
+        else:
+            print("Файл не выбран.")
+        root.destroy()
+
 
     def doc_analyze_by_ai(self, qwestion, search=False):
         client = Client()
         try:
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4.1-nano",
                 messages=[{"role": "user", "content": qwestion}],
                 web_search=search,
+                provider=g4f.Provider.Blackbox,
             )
             return response.choices[0].message.content
         except Exception as e:
             return f"Ошибка при обращении к API: {str(e)}"
 
     def interface(self):
+        self.choose_file()
         content = self.content()
         session = True
-        history_dialog = deque(maxlen=4)  # Limit to 4 interactions
+        history_dialog = deque(maxlen=4)
         cont = 0
 
         while session:

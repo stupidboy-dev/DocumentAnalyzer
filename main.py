@@ -1,8 +1,7 @@
 from model.model import MainModel_MainModuel
 
 def main():
-    path = str(input("Введите путь к файлу:"))
-    processor = MainModel_MainModuel(path)
+    processor = MainModel_MainModuel()
     processor.interface()
 
 if __name__ == "__main__":
