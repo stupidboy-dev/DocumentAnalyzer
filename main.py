@@ -1,7 +1,7 @@
-from model.model import MainModel_MainModuel
+from model.model import MainModel_MainModule
 
 def main():
-    processor = MainModel_MainModuel()
+    processor = MainModel_MainModule()
     processor.interface()
 
 if __name__ == "__main__":

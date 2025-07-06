@@ -1,44 +1,122 @@
-import os.path
+import sys
+sys.stdin.reconfigure(encoding='utf-8')
 
-from g4f.Provider import provider
+import os
 from g4f.client import Client
+from g4f import Provider
 import g4f
 from collections import deque
-from doc_extract.pdf import extract_pages_pdf
-from doc_extract.docx import DocxExtracting
 import tkinter as tk
 from tkinter import filedialog
+from doc_extract.images_descriptions import ImageExtractions
+# Импорты для обработки документов
+try:
+    from doc_extract.pdf import extract_pages_pdf
+
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+    print("Модуль для обработки PDF недоступен")
+
+try:
+    from doc_extract.docx import DocxExtracting
+
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+    print("Модуль для обработки DOCX недоступен")
 
 
-class MainModel_MainModuel:
+class MainModel_MainModule:
     def __init__(self):
         self.file_path = None
+        self.supported_image_formats = ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp']
+        self.supported_document_formats = ['.pdf', '.docx']
+
+    def is_image_file(self, file_path):
+        """Проверяет, является ли файл изображением"""
+        return os.path.splitext(file_path)[1].lower() in self.supported_image_formats
+
+    def is_document_file(self, file_path):
+        """Проверяет, является ли файл документом"""
+        return os.path.splitext(file_path)[1].lower() in self.supported_document_formats
 
     def content(self):
-        if os.path.splitext(self.file_path)[1].lower() == '.pdf':
-            return extract_pages_pdf(self.file_path)
-        elif os.path.splitext(self.file_path)[1].lower() == '.docx':
-            docx = DocxExtracting(self.file_path)
-            return docx.make_description()
+        """Обрабатывает содержимое файла в зависимости от его типа"""
+        if not self.file_path:
+            return "Файл не выбран"
+
+        file_ext = os.path.splitext(self.file_path)[1].lower()
+
+        # Обработка изображений
+        if self.is_image_file(self.file_path):
+            print("Обнаружено изображение, начинаю обработку...")
+            image_processor = ImageExtractions(self.file_path)
+            return image_processor.gpt_describe()
+
+        # Обработка документов
+        elif file_ext == '.pdf':
+            print("Обнаружен PDF документ, начинаю обработку...")
+            if PDF_AVAILABLE:
+                try:
+                    return extract_pages_pdf(self.file_path)
+                except Exception as e:
+                    return f"Ошибка при обработке PDF: {str(e)}"
+            else:
+                return "Обработка PDF недоступна (модуль doc_extract.pdf не найден)"
+
+        elif file_ext == '.docx':
+            print("Обнаружен DOCX документ, начинаю обработку...")
+            if DOCX_AVAILABLE:
+                try:
+                    docx = DocxExtracting(self.file_path)
+                    return docx.make_description()
+                except Exception as e:
+                    return f"Ошибка при обработке DOCX: {str(e)}"
+            else:
+                return "Обработка DOCX недоступна (модуль doc_extract.docx не найден)"
+
+        else:
+            return f"Неподдерживаемый формат файла: {file_ext}"
 
     def choose_file(self):
+        """Открывает диалоговое окно для выбора файла"""
         root = tk.Tk()
         root.withdraw()  # Скрываем главное окно Tkinter
-        root.geometry("1500x700")
-        self.file_path = filedialog.askopenfilename()  # Открываем диалоговое окно выбора файла
+
+        # Создаем фильтры для типов файлов
+        filetypes = [
+            ('Все поддерживаемые', '*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.tiff;*.webp;*.pdf;*.docx'),
+            ('Изображения', '*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.tiff;*.webp'),
+            ('Документы', '*.pdf;*.docx'),
+            ('Все файлы', '*.*')
+        ]
+
+        self.file_path = filedialog.askopenfilename(
+            title="Выберите файл для обработки"
+        )
+
         if self.file_path:
             print(f"Выбран файл: {self.file_path}")
+            file_ext = os.path.splitext(self.file_path)[1].lower()
+            if self.is_image_file(self.file_path):
+                print("Тип файла: Изображение")
+            elif self.is_document_file(self.file_path):
+                print("Тип файла: Документ")
+            else:
+                print(f"Внимание: Неподдерживаемый тип файла ({file_ext})")
         else:
             print("Файл не выбран.")
+
         root.destroy()
 
-
-    def doc_analyze_by_ai(self, qwestion, search=False):
+    def doc_analyze_by_ai(self, question, search=False):
+        """Анализирует документ с помощью AI"""
         client = Client()
         try:
             response = client.chat.completions.create(
-                model="gpt-4.1-nano",
-                messages=[{"role": "user", "content": qwestion}],
+                model="gpt-4.1-nano",  # Изменена модель для лучшей поддержки
+                messages=[{"role": "user", "content": question}],
                 web_search=search,
                 provider=g4f.Provider.Blackbox,
             )
@@ -47,43 +125,76 @@ class MainModel_MainModuel:
             return f"Ошибка при обращении к API: {str(e)}"
 
     def interface(self):
+        """Основной интерфейс программы"""
+        print("=== Анализатор документов и изображений ===")
+        print("Поддерживаемые форматы:")
+        print("- Изображения: JPG, PNG, BMP, GIF, TIFF, WebP")
+        print("- Документы: PDF, DOCX")
+        print("=" * 50)
+
         self.choose_file()
+
+        if not self.file_path:
+            print("Программа завершена: файл не выбран")
+            return
+
+        # Получаем содержимое файла
         content = self.content()
+
+        if "Ошибка" in content or "недоступна" in content:
+            print(f"Проблема с обработкой файла: {content}")
+            return
+
         session = True
-        history_dialog = deque(maxlen=4)
+        history_dialog = ""
         cont = 0
 
         while session:
             if cont == 0:
-                qwestion = f"Вот считанный для тебя документ, что ты можешь про него рассказать? Документ: {content}"
+                if self.is_image_file(self.file_path):
+                    question = f"Вот описание изображения, проанализируй его: {content}"
+                else:
+                    question = f"Вот считанный для тебя документ, что ты можешь про него рассказать? Документ: {content}"
             else:
-                print('Что хотите спросить?')
-                qwestion = str(input('Вводите:...')).strip()
-                if not qwestion:
+                print('\nЧто хотите спросить? (введите "exit" для выхода)')
+                question = str(input('Вводите: ')).encode('utf-8').decode('utf-8', errors='ignore')
+
+                if not question:
                     print("Пожалуйста, введите вопрос.")
                     continue
-                if qwestion.lower() in ["exit", "quit", "выйти"]:
+
+                if question.lower() in ["exit", "quit", "выйти"]:
                     session = False
-                    lst = os.listdir('images')
-                    for i in lst:
-                        del_path = os.path.join('images/', i)
-                        os.remove(del_path)
+                    # Очистка папки images если она существует
+                    if os.path.exists('images'):
+                        try:
+                            for filename in os.listdir('images'):
+                                file_path = os.path.join('images', filename)
+                                if os.path.isfile(file_path):
+                                    os.remove(file_path)
+                            print("Временные файлы очищены.")
+                        except Exception as e:
+                            print(f"Ошибка при очистке временных файлов: {e}")
                     break
 
-            # Append only the current question to history
-            history_dialog.append({"question": qwestion})
 
-            # Call AI with question and limited history
-            history_str = "\n".join([f"Вопрос {i+1}: {item['question']}" for i, item in enumerate(history_dialog)])
-            full_qwestion = f"{qwestion}\nИстория чата:\n{history_str}"
-            answer = self.doc_analyze_by_ai(full_qwestion)
+            # Формируем полный вопрос с историей
+            if len(history_dialog) > 1:
+                full_question = f"История вашей переписки: {history_dialog}, Вопрос пользователя: {question}"
+            else:
+                full_question = question
 
-            # Store answer in history
-            history_dialog[-1]["answer"] = answer
+            # Получаем ответ от AI
+            answer = self.doc_analyze_by_ai(full_question)
 
-            print(f"Ответ {cont + 1}: {answer}")
-            print('*' * 200)
-            print('-' * 200)
-            print('*' * 200)
+            # Сохраняем ответ в историю
+            history_dialog += f"User question{cont+1}: {question}\nYour answer{cont+1}: {answer}"
+            if cont > 4:
+                history_dialog.pop(0)
+
+            print(f"\nОтвет {cont + 1}: {answer}")
+            print('*' * 80)
+            print('-' * 80)
+            print('*' * 80)
 
             cont += 1
