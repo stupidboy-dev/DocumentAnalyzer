@@ -46,6 +46,10 @@ def new_session():
         except Exception as e:
             print(f"Ошибка при удалении файла: {e}")
     processor.file_path = None  # Сброс пути к файлу
+    for file in os.listdir('images'):
+        path = os.path.join('images/', file)
+        os.remove(path)
+    print("temp files was deleted")
     return None, [], [],  "", "Ожидается новый файл для анализа"
 
 
@@ -89,4 +93,4 @@ with gr.Blocks(title="Документы с AI-анализом") as demo:
     )
 
 if __name__ == "__main__":
-    demo.launch(share=True)
+    demo.launch(share=False)
