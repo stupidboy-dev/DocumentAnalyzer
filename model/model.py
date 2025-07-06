@@ -1,6 +1,7 @@
 import sys
 sys.stdin.reconfigure(encoding='utf-8')
 
+import gradio as gr
 import os
 from g4f.client import Client
 from g4f import Provider
@@ -78,6 +79,12 @@ class MainModel_MainModule:
 
         else:
             return f"Неподдерживаемый формат файла: {file_ext}"
+
+    file_input = gr.File(type="filepath")
+
+    def upload(self, path: str):
+        self.file_path = path
+        return os.path.basename(path)
 
     def choose_file(self):
         """Открывает диалоговое окно для выбора файла"""
